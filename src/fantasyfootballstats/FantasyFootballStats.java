@@ -4,12 +4,18 @@
  * and open the template in the editor.
  */
 
+/** THINGS TO DO:
+ *  Put most of main method in separate methods, allowing years as 
+ * Create a Score class, that keeps the year, week, and team, along with the score
+ *  Calculate playoff chances
+ */
+
 package fantasyfootballstats;
 
 
 import org.jsoup.*;
 import org.jsoup.nodes.*;
-import org.jsoup.helper.*;
+import org.jsoup.helper.*; 
 import org.jsoup.parser.*;
 import org.jsoup.safety.*;
 import org.jsoup.select.*;
@@ -30,11 +36,20 @@ import org.jsoup.Connection.Method;
  */
 public class FantasyFootballStats {
 
+    // League id for our league: 69673
+    
+    final static boolean USE_TABS_FOR_EXCEL = true;
+    final static boolean DISPLAY_TEAM_INFO = false;
+    final static boolean DO_EVERY_YEAR = false;
+    
+    
+    
     static int NUM_OF_TEAMS;
     static String LEAGUE_NAME;
     static int NUM_OF_WEEKS;
-    final static int ROWS_BTWN_WEEKS = 9;
+    static int ROWS_BTWN_WEEKS;
     
+    static double highestScore = 0;
     
     /**
      * @param args the command line arguments
@@ -42,23 +57,12 @@ public class FantasyFootballStats {
      */
     public static void main(String[] args) throws IOException
     {
-        /*
-        // NOT WORKING
-        //With this you login and a session is created
-        Connection.Response res = Jsoup.connect("https://cdn.registerdisney.go.com/v2/responder/responder.js")
-        .data("text", "greghorne20+espn@gmail.com", "password", "bday1390")
-        .method(Method.POST)
-        .execute();
         
-
-        //This will get you cookies
-        Map<String, String> loginCookies = res.cookies();
-        */
-        System.out.println("Please enter the league ID (i.e. the number found at the end of league URL");
+        System.out.println("Please enter the league ID (i.e. the number found at the end of league URL)");
         System.out.print("League ID: ");
         Scanner scanner = new Scanner(System.in);
         String leagueID = scanner.nextLine();
-        //String leagueID = "69673";
+        //String our leagueID = "69673";
         
         String settingsUrl = "http://games.espn.go.com/ffl/leaguesetup/settings?leagueId=" + leagueID;
         Document doc = Jsoup.connect(settingsUrl).get();
@@ -67,6 +71,7 @@ public class FantasyFootballStats {
         
         Elements row = doc.select("tr:contains(Number Of Teams)");
         NUM_OF_TEAMS = Integer.parseInt( row.get(1).text().substring(16));
+        ROWS_BTWN_WEEKS = NUM_OF_TEAMS / 2 + 3;
         
         row = doc.select("tr:contains(League Name)");
         LEAGUE_NAME = ( row.get(1).text().substring(12));
@@ -79,26 +84,7 @@ public class FantasyFootballStats {
         System.out.println("WEEKS IN REG SEASON: " + NUM_OF_WEEKS);
         System.out.println("======================================\n");
         
-        
-        /*
-        //THIS WORKED FOR OUR LEAGUE BUT IS NOT UNIVERSAL
-        Element row = rows.get(2);
-        Elements cols = row.select("td");
-        NUM_OF_TEAMS = Integer.parseInt( cols.get(1).text());
-        
-        row = rows.get(1);
-        cols = row.select("td");
-        LEAGUE_NAME =  cols.get(1).text();
-        
-        table = doc.select("table").get(17);
-        rows = table.select("tr");
-        row = rows.get(3);
-        cols = row.select("td");
-        NUM_OF_WEEKS =  Integer.parseInt( cols.get(1).text().split(" ")[0]);
-        */
-        
-        
-        
+     
         String url = "http://games.espn.go.com/ffl/schedule?leagueId=" + leagueID;    
           
         doc = Jsoup.connect(url).get();
@@ -109,34 +95,94 @@ public class FantasyFootballStats {
         getSeasonInfo(teams, doc);
         
 
-        
-        for(Team team: teams)
+        if(DISPLAY_TEAM_INFO)
         {
-            System.out.println("Name: " + team.getName());
-            System.out.println("Record: " + team.getWins() + "-" + team.getLosses() + "-" + team.getTies());
-            System.out.println("Rank: " + team.getRank());
-            System.out.println("Points For: " + team.getPointsFor());
-            System.out.println("Points Rank: " + team.getPointsRank());
-            System.out.println("Breakdown Record: " + team.getBreakdownWins() + "-" + team.getBreakdownLosses() + "-" + team.getBreakdownTies());
-            System.out.println("Breakdown Rank: " + team.getBreakdownRank());
-            System.out.println("----------------------------");
+        for(Team team: teams)
+            {
+                System.out.println("Name: " + team.getName());
+                System.out.println("Record: " + team.getWins() + "-" + team.getLosses() + "-" + team.getTies());
+                System.out.println("Rank: " + team.getRank());
+                System.out.println("Points For: " + team.getPointsFor());
+                System.out.println("Points Rank: " + team.getPointsRank());
+                System.out.println("Breakdown Record: " + team.getBreakdownWins() + "-" + team.getBreakdownLosses() + "-" + team.getBreakdownTies());
+                System.out.println("Breakdown Rank: " + team.getBreakdownRank());
+                System.out.println("----------------------------");
+            }
         }
         
-        System.out.println("\nPower Rankings");
-        System.out.printf("%-25s%-15s%-15s%-15s%-15s", new Object[]{ "Team" , "PointsFor" , "Record" , "Brkdwn. Rec." , "Power"} );
-        System.out.println();
-        for(Team team: teams)
+        printPowerRankings(USE_TABS_FOR_EXCEL, teams);
+        
+        if(DO_EVERY_YEAR)
         {
-            System.out.printf("%-25s%-15d%-15d%-15d%-15d",  team.getName() , team.getPointsRank() , team.getRank() , team.getBreakdownRank() , team.getPowerRanking());
-            System.out.println();
+            for(int i = 2014; i > 2004; i--)
+            {
+                System.out.println(i);
+                settingsUrl = "http://games.espn.go.com/ffl/leaguesetup/settings?leagueId=" + leagueID + "&seasonId=" + i;
+                doc = Jsoup.connect(settingsUrl).get();
+                table = doc.select("table").get(1);
+                rows = table.select("tr");
+
+                row = doc.select("tr:contains(Number Of Teams)");
+                NUM_OF_TEAMS = Integer.parseInt( row.get(1).text().substring(16));
+                ROWS_BTWN_WEEKS = NUM_OF_TEAMS / 2 + 3;
+
+                row = doc.select("tr:contains(League Name)");
+                LEAGUE_NAME = ( row.get(1).text().substring(12));
+
+                row = doc.select("tr:contains(Regular Season Matchups)");
+                NUM_OF_WEEKS = Integer.parseInt( row.get(1).text().substring(24,26));
+                
+                url = "http://games.espn.go.com/ffl/schedule?leagueId=" + leagueID + "&seasonId=" + i;    
+          
+                doc = Jsoup.connect(url).get();
+        
+                teams = new Team[NUM_OF_TEAMS];
+        
+                fetchTeamNames(teams, doc);
+                getSeasonInfo(teams, doc);
+                
+                
+            }
+            
+            System.out.println("Highest Score ever:" + highestScore);      
+            
         }
+        
         
     
            
-               
+         
                 
         
                 
+    }
+    
+    public static void printPowerRankings(boolean useTabsForExcel, Team[] teams)
+    {
+        if(useTabsForExcel)
+        {
+            System.out.println("\nPower Rankings");
+            System.out.printf("%-25s%-15s%-15s%-15s%-15s", new Object[]{ "Team" + "\t", "PointsFor" + "\t\t", "Record" + "\t\t" , "Brkdwn. Rec." + "\t\t", "Power"} );
+            System.out.println();
+            for(Team team: teams)
+            {
+                System.out.printf("%-25s%-15s%-15s%-15s%-15s",  team.getName() + "\t" , team.getPointsRank() + "\t" + team.getPointsFor() + "\t" , team.getRank() + "\t" + team.getRecord() + "\t" , team.getBreakdownRank() + "\t" + team.getBreakdownRecord() + "\t"  , team.getPowerRanking());
+                System.out.println();
+            }
+        
+        }
+        else
+        {
+            System.out.println("\nPower Rankings");
+            System.out.printf("%-25s%-15s%-15s%-15s%-15s", new Object[]{ "Team", "PointsFor", "Record", "Brkdwn. Rec.", "Power"} );
+            System.out.println();
+            for(Team team: teams)
+            {
+                System.out.printf("%-25s%-7d%-8.1f%-5d%-10s%-5d%-10s%-15s",  team.getName() , team.getPointsRank() , team.getPointsFor() , team.getRank() , team.getRecord() , team.getBreakdownRank() ,team.getBreakdownRecord() , team.getPowerRanking());
+                System.out.println();
+            }
+        
+        }
     }
     
     /*
@@ -167,21 +213,32 @@ public class FantasyFootballStats {
         
     }
     
+    /*
+    * Takes an array of Teams, and a doc of an ESPN schedule page.  Goes through
+    * the schedule of played games and gets the scores for each team.  Then sets
+    * all of the rankings for the teams according to the game info
+    */
     public static void getSeasonInfo(Team[] teams, Document doc)
     {
         Element table = doc.select("table").get(1);
         Elements rows = table.select("tr");
         
         int i = 2; //where first tr starts with teams
-        for(int week = 1; i < NUM_OF_WEEKS; week++ )
+        for(int week = 1; i < NUM_OF_WEEKS * ROWS_BTWN_WEEKS; week++ )
         {
+            
             Element row = rows.get(i);
             Elements cols = row.select("td");
             String test = cols.get(5).text();
             if ( (cols.get(5).text().equals("Preview")) || ( (cols.get(5).text().equals("Box")))  )
+            {
                 break; // no more weeks have been played
+            }
             else
+            {
+
                 getWeekInfo(teams, doc, week);
+            }
                 
             i = i + ROWS_BTWN_WEEKS;
         }
@@ -193,6 +250,11 @@ public class FantasyFootballStats {
         
     }
     
+    /*
+    *  Given an array of teams, a doc of an espn fantasy schedule and an int of the
+    *  week in which to gather info, this function fetches the info for the games played in that week
+    *  and gives the team its scores for that week.
+    */
     public static void getWeekInfo(Team[] teams, Document doc, int week)
     {
                         
@@ -211,8 +273,8 @@ public class FantasyFootballStats {
             Elements cols = row.select("td");
 
             
-            Double awayScore = Double.parseDouble(cols.get(5).text().split("\\-")[0]);                
-            Double homeScore = Double.parseDouble(cols.get(5).text().split("\\-")[1]);                
+            Double awayScore = Double.parseDouble(cols.get(5).text().split("\\-")[0].replace("*", ""));                
+            Double homeScore = Double.parseDouble(cols.get(5).text().split("\\-")[1].replace("*", ""));                
                 
                      
             for( Team team: teams)
@@ -222,9 +284,24 @@ public class FantasyFootballStats {
                 {
                     team.setScoresByWeek(week, awayScore );
                     if(awayScore > homeScore)
+                    {
                         team.setWins( team.getWins() + 1);
+                        if(highestScore < awayScore)
+                        {
+                            highestScore = awayScore;
+                            //System.out.println("Team: " + team.getName() + " Week: " + week + " Score: " + highestScore);
+                        }
+                    }
                     else if(homeScore > awayScore)
+                    {
                         team.setLosses( team.getLosses() + 1);
+                        if(highestScore < homeScore)
+                        {
+                            highestScore = homeScore;
+                            //System.out.println("Team: " + team.getName() + " Week: " + week + " Score: " + highestScore);
+                        }
+                            
+                    }
                     else
                         team.setTies( team.getTies() + 1); 
                     
@@ -257,6 +334,11 @@ public class FantasyFootballStats {
         updateBreakdownRecord(teams, weeklyPoints, week);
     }
     
+    /*
+    * Updates the breakdown record of all teams, given the array of teams, the array
+    * of points score in each game, and the int of the week.
+    * Sets the breakdown record for each team in teams.
+    */
     public static void updateBreakdownRecord(Team[] teams, double[] weeklyPoints, int week)
     {
         Arrays.sort(weeklyPoints);
@@ -279,6 +361,9 @@ public class FantasyFootballStats {
         }
     }
     
+    /*
+    * Gives each team in teams a rank according to their cumulative breakdown record
+    */
     public static void rankTeamsByBreakdownRecord(Team[] teams)
     {
         
@@ -300,6 +385,9 @@ public class FantasyFootballStats {
         
     }
     
+    /*
+    * Gives each team in teams a rank according to their cumulative Points For
+    */
     public static void rankTeamsByPointsFor(Team[] teams)
     {
         ArrayList<Team> teamsRankedByPF = new ArrayList<>(Arrays.asList(teams));
@@ -319,6 +407,9 @@ public class FantasyFootballStats {
         }
     }
     
+    /*
+    * Gives each team in teams a rank according to their cumulative Win/loss record
+    */
     public static void rankTeamsByWinPerct(Team[] teams)
     {
         ArrayList<Team> teamsRankedByWP = new ArrayList<>(Arrays.asList(teams));
@@ -338,6 +429,10 @@ public class FantasyFootballStats {
         }
     }
     
+    /*
+    * Gives each team in teams a power ranking.  Power Ranking is calculated by 
+    * ordering the teams in ascending order according to WinPerctRank + PointsForRank + BreakdownRecord
+    */
     public static void setPowerRankings(Team[] teams)
     {
         ArrayList<Team> teamsRankedByPR = new ArrayList<>(Arrays.asList(teams));

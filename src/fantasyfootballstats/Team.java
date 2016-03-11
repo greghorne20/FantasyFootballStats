@@ -107,6 +107,22 @@ public class Team implements Comparator<Team>, Comparable<Team>
         return powerRanking;
     }
     
+    public String getRecord()
+    {
+        if(getTies() == 0)
+            return ("(" + getWins() + "-" + getLosses() + ")");
+        else
+            return ("(" + getWins() + "-" + getLosses() + "-" + getTies() + ")");
+    }
+    
+    public String getBreakdownRecord()
+    {
+        if(getBreakdownTies() == 0)
+            return ("(" + getBreakdownWins() + "-" + getBreakdownLosses() + ")");
+        else
+            return ("(" + getBreakdownWins() + "-" + getBreakdownLosses() + "-" + getBreakdownTies() + ")");
+    }
+    
     
     //Mutator Methods
     
@@ -254,10 +270,39 @@ public class Team implements Comparator<Team>, Comparable<Team>
         @Override
         public int compare(Team teamA, Team teamB)
         {
-
+           
+            // first, compare by adding all three together
             if(teamA.getRank() + teamA.getBreakdownRank() + teamA.getPointsRank()
                     < teamB.getRank() + teamB.getBreakdownRank() + teamB.getPointsRank())
                 return -1;
+            if(teamA.getRank() + teamA.getBreakdownRank() + teamA.getPointsRank()
+                    == teamB.getRank() + teamB.getBreakdownRank() + teamB.getPointsRank())
+            {
+                //if tied, compare by breakdown
+                if(teamA.getBreakdownRank() < teamB.getBreakdownRank())
+                    return -1;
+                if(teamA.getBreakdownRank() == teamB.getBreakdownRank())
+                {
+                    // then points
+                    if(teamA.getPointsRank() < teamB.getPointsRank())
+                        return -1;
+                    if(teamA.getPointsRank() == teamB.getPointsRank())
+                    {
+                        // then win percentage
+                        if(teamA.getRank() < teamB.getRank())
+                            return -1;
+                        if(teamA.getRank() == teamB.getRank())
+                            return 0;  // IF still tied, then they are equal
+                        else
+                            return 1;
+                    }
+                    else
+                        return 1;
+                        
+                }
+                else
+                    return 1;
+            }
             else
                 return 1;
 
